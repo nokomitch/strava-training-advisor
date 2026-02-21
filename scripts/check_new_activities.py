@@ -5,8 +5,8 @@ New activity checker for GitHub Actions.
 Polls Strava for new running activities since the last known activity ID.
 When a new activity is found, analyzes it and sends a Discord notification.
 
-The LAST_ACTIVITY_ID is stored as a GitHub Actions Variable and updated
-by the workflow after each new notification.
+The last seen activity ID is stored in .last_activity_id in the repo root
+and updated via git commit by the workflow after each new notification.
 
 Usage (via GitHub Actions):
     uv run python scripts/check_new_activities.py
@@ -31,9 +31,26 @@ from src.notifier import send_new_activity_notification
 from src.race_manager import load_races
 from src.strava_client import StravaClient
 
+STATE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".last_activity_id"
+)
+
+
+def read_last_id() -> int:
+    try:
+        with open(STATE_FILE) as f:
+            return int(f.read().strip())
+    except (FileNotFoundError, ValueError):
+        return 0
+
+
+def write_last_id(activity_id: int) -> None:
+    with open(STATE_FILE, "w") as f:
+        f.write(str(activity_id) + "\n")
+
 
 def main() -> None:
-    last_id = int(os.getenv("LAST_ACTIVITY_ID", "0"))
+    last_id = read_last_id()
     aet_hr = int(os.getenv("ATHLETE_AET_HR", "150"))
     ant_hr = int(os.getenv("ATHLETE_ANT_HR", "170"))
 
@@ -107,12 +124,12 @@ def main() -> None:
     )
 
     if sent:
-        print(f"Discord通知を送信しました。")
+        print("Discord通知を送信しました。")
     else:
         print("Discord通知の送信をスキップしました。", file=sys.stderr)
 
-    # Signal to GitHub Actions workflow that LAST_ACTIVITY_ID should be updated
-    # The workflow reads this from stdout and updates the variable via gh CLI
+    # Update state file (workflow will git commit & push this file)
+    write_last_id(newest.id)
     print(f"NEW_ACTIVITY_ID={newest.id}")
 
 

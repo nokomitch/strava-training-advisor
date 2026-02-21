@@ -16,7 +16,7 @@ jobs:
     name: Check for new activities
     runs-on: ubuntu-latest
     permissions:
-      actions: write   # needed to update repository variables via gh CLI
+      contents: write  # needed to git push .last_activity_id
 
     steps:
       - name: Checkout
@@ -45,8 +45,6 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           ATHLETE_AET_HR: ${{ secrets.ATHLETE_AET_HR }}
           ATHLETE_ANT_HR: ${{ secrets.ATHLETE_ANT_HR }}
-          # LAST_ACTIVITY_ID is a repository Variable (not Secret) so it can be updated
-          LAST_ACTIVITY_ID: ${{ vars.LAST_ACTIVITY_ID || '0' }}
           FORCE_NOTIFY: ${{ github.event.inputs.force_notify || 'false' }}
         run: |
           OUTPUT=$(uv run python scripts/check_new_activities.py 2>&1)
@@ -55,11 +53,11 @@ jobs:
           NEW_ID=$(echo "$OUTPUT" | grep '^NEW_ACTIVITY_ID=' | cut -d= -f2)
           echo "new_activity_id=$NEW_ID" >> $GITHUB_OUTPUT
 
-      - name: Update LAST_ACTIVITY_ID variable
+      - name: Commit updated .last_activity_id
         if: steps.check.outputs.new_activity_id != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          NEW_ID="${{ steps.check.outputs.new_activity_id }}"
-          echo "LAST_ACTIVITY_ID を $NEW_ID に更新します"
-          gh variable set LAST_ACTIVITY_ID --body "$NEW_ID" --repo "${{ github.repository }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .last_activity_id
+          git commit -m "chore: update last activity id to ${{ steps.check.outputs.new_activity_id }}"
+          git push
