@@ -1,0 +1,65 @@
+name: Strava Activity Monitor
+
+on:
+  schedule:
+    # Every 10 minutes (UTC). Public repo = unlimited free minutes.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_notify:
+        description: '強制通知テスト（最新アクティビティを無条件に通知）'
+        required: false
+        default: 'false'
+
+jobs:
+  check:
+    name: Check for new activities
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write   # needed to update repository variables via gh CLI
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Run activity check
+        id: check
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_ACCESS_TOKEN: ${{ secrets.STRAVA_ACCESS_TOKEN }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+          STRAVA_TOKEN_EXPIRES_AT: ${{ secrets.STRAVA_TOKEN_EXPIRES_AT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ATHLETE_AET_HR: ${{ secrets.ATHLETE_AET_HR }}
+          ATHLETE_ANT_HR: ${{ secrets.ATHLETE_ANT_HR }}
+          # LAST_ACTIVITY_ID is a repository Variable (not Secret) so it can be updated
+          LAST_ACTIVITY_ID: ${{ vars.LAST_ACTIVITY_ID || '0' }}
+          FORCE_NOTIFY: ${{ github.event.inputs.force_notify || 'false' }}
+        run: |
+          OUTPUT=$(uv run python scripts/check_new_activities.py 2>&1)
+          echo "$OUTPUT"
+          # Extract NEW_ACTIVITY_ID from output if present
+          NEW_ID=$(echo "$OUTPUT" | grep '^NEW_ACTIVITY_ID=' | cut -d= -f2)
+          echo "new_activity_id=$NEW_ID" >> $GITHUB_OUTPUT
+
+      - name: Update LAST_ACTIVITY_ID variable
+        if: steps.check.outputs.new_activity_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_ID="${{ steps.check.outputs.new_activity_id }}"
+          echo "LAST_ACTIVITY_ID を $NEW_ID に更新します"
+          gh variable set LAST_ACTIVITY_ID --body "$NEW_ID" --repo "${{ github.repository }}"

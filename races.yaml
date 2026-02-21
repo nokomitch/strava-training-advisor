@@ -1,0 +1,18 @@
+races:
+  - name: 東京マラソン
+    date: 2026-03-01
+    priority: A   # A=最重要, B=重要, C=参加程度
+    distance_km: 42.195
+    notes: フルマラソン。ピーキングが必要。
+
+  - name: ハセツネ30K
+    date: 2026-03-30
+    priority: C
+    distance_km: 30
+    notes: トレイル。Aレース前のテストレース扱い。
+
+  - name: 信越五岳100マイル
+    date: 2026-09-20
+    priority: A
+    distance_km: 160
+    notes: 100マイルトレイル。年間最大目標レース。
