@@ -100,11 +100,35 @@ def main() -> None:
 
     # Build activity summary for single-activity advice
     hr_info = f"平均心拍: {newest.average_heartrate:.0f}bpm" if newest.average_heartrate else "心拍データなし"
+
+    drift_info = ""
+    if newest.hr_drift_pct is not None:
+        drift_info = f"\n- 心拍ドリフト: {newest.hr_drift_pct:+.1f}%"
+        if newest.hr_drift_pct > 10:
+            drift_info += "（深刻→強度過多）"
+        elif newest.hr_drift_pct > 5:
+            drift_info += "（有酸素ベース不足の可能性）"
+        elif newest.hr_drift_pct > 3:
+            drift_info += "（経過観察）"
+
+    zone_dist_info = ""
+    if newest.zone_distribution and newest.zone_distribution.total_s > 0:
+        azd = newest.zone_distribution
+        zone_dist_info = (
+            f"\n- ゾーン分布: Z1:{azd.zone_pct(1):.0f}%"
+            f" Z2:{azd.zone_pct(2):.0f}%"
+            f" Z3:{azd.zone_pct(3):.0f}%"
+            f" Z4:{azd.zone_pct(4):.0f}%"
+            f" (低強度{azd.low_intensity_pct:.0f}%)"
+        )
+
     activity_summary = (
         f"- 名前: {newest.name}\n"
         f"- 距離: {newest.distance_km:.1f}km\n"
         f"- 時間: {newest.moving_time_min:.0f}分\n"
-        f"- {hr_info}\n"
+        f"- {hr_info}"
+        f"{drift_info}"
+        f"{zone_dist_info}\n"
         f"- 獲得標高: {newest.total_elevation_gain_m:.0f}m"
     )
 

@@ -1,8 +1,10 @@
 """Data models for Strava Training Advisor."""
 
+import statistics
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Literal, Optional
+from zoneinfo import ZoneInfo
 
 
 @dataclass
@@ -22,6 +24,25 @@ class Activity:
     average_speed_mps: float
     heartrate_stream: list[int] = field(default_factory=list)
     time_stream: list[int] = field(default_factory=list)
+    zone_distribution: Optional["ZoneDistribution"] = field(default=None)
+
+    @property
+    def hr_drift_pct(self) -> Optional[float]:
+        """後半平均HR / 前半平均HR × 100 - 100（ドリフト%）。
+        正値 = 後半に心拍上昇（有酸素ベース弱さの指標）。ストリームがない場合は None。"""
+        if not self.heartrate_stream or len(self.heartrate_stream) < 4:
+            return None
+        mid = len(self.heartrate_stream) // 2
+        first_half_avg = sum(self.heartrate_stream[:mid]) / mid
+        second_half_avg = sum(self.heartrate_stream[mid:]) / (len(self.heartrate_stream) - mid)
+        return (second_half_avg / first_half_avg - 1) * 100
+
+    @property
+    def hr_stability(self) -> Optional[float]:
+        """心拍の標準偏差（bpm）。ペース一貫性の指標。ストリームがない場合は None。"""
+        if not self.heartrate_stream or len(self.heartrate_stream) < 2:
+            return None
+        return statistics.stdev(self.heartrate_stream)
 
     @property
     def distance_km(self) -> float:
@@ -163,7 +184,8 @@ class Race:
 
     @property
     def days_until(self) -> int:
-        return (self.date - date.today()).days
+        today_jst = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+        return (self.date - today_jst).days
 
     @property
     def is_past(self) -> bool:

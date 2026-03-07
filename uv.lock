@@ -653,6 +653,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rich" },
+    { name = "tzdata" },
 ]
 
 [package.metadata]
@@ -665,6 +666,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rich", specifier = ">=14.3.3" },
+    { name = "tzdata", specifier = ">=2024.1" },
 ]
 
 [[package]]

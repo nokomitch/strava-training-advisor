@@ -2,8 +2,11 @@
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from .models import Activity, AnalysisResult, TrainingZones, WeeklyStats, ZoneDistribution
+
+_JST = ZoneInfo("Asia/Tokyo")
 
 
 def _compute_zone_distribution(
@@ -55,8 +58,8 @@ def _group_by_week(activities: list[Activity]) -> dict[datetime, list[Activity]]
     """Group activities by ISO week start (Monday)."""
     weeks: dict[datetime, list[Activity]] = defaultdict(list)
     for activity in activities:
-        # Convert to local-naive by stripping tz for grouping
-        d = activity.start_date.astimezone(timezone.utc).replace(tzinfo=None)
+        # Convert to JST-naive for grouping (週の区切りを日本時間基準にする)
+        d = activity.start_date.astimezone(_JST).replace(tzinfo=None)
         week_start = d - timedelta(days=d.weekday())
         week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
         weeks[week_start].append(activity)
@@ -103,6 +106,11 @@ def analyze(activities: list[Activity], zones: TrainingZones) -> AnalysisResult:
                 zone_distribution=zone_dist,
             )
         )
+
+    # アクティビティ単位のゾーン分布を計算（心拍ストリームがある場合のみ）
+    for activity in activities:
+        if activity.heartrate_stream:
+            activity.zone_distribution = _compute_zone_distribution([activity], zones)
 
     overall_dist = _compute_zone_distribution(activities, zones)
     weekly_volumes = [ws.total_distance_km for ws in weekly_stats]

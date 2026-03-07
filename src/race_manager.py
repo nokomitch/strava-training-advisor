@@ -1,7 +1,8 @@
 """Race calendar management and training phase detection."""
 
 import os
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -62,7 +63,8 @@ def get_training_phase(races: list[Race]) -> tuple[TrainingPhase, Race | None]:
     past_a_races = [r for r in races if r.priority == "A" and r.is_past]
     if past_a_races:
         most_recent_past = max(past_a_races, key=lambda r: r.date)
-        days_since = (date.today() - most_recent_past.date).days
+        today_jst = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+        days_since = (today_jst - most_recent_past.date).days
         if days_since <= 14:
             return "Recovery", next_a
 
