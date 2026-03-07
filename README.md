@@ -18,7 +18,7 @@ Stravaのランニングデータを取得し、[Uphill Athlete](https://uphilla
 │     b. Uphill Athlete 4ゾーンで分析                       │
 │     c. Claude AI がアドバイスを生成                        │
 │     d. Discord に通知                                    │
-│     e. LAST_ACTIVITY_ID を更新                           │
+│     e. .last_activity_id を更新（自動 git commit）          │
 └─────────────────────────────────────────────────────────┘
          ↓ ポーリング          ↓ 通知
     Strava API            Discord Webhook
@@ -32,8 +32,9 @@ Stravaのランニングデータを取得し、[Uphill Athlete](https://uphilla
 
 WebhookではなくPolling（ポーリング）方式です。
 
-- `LAST_ACTIVITY_ID`（GitHub Variables に保存）と、Strava APIから取得した最新IDを比較
+- `.last_activity_id` ファイル（リポジトリにgit管理）に保存された最後のアクティビティIDと、Strava APIから取得した最新IDを比較
 - IDが変わっていれば新しいランと判断して分析・通知
+- 新着が検出されると、ワークフローが自動的に `.last_activity_id` を更新してgit commit・push
 - 同じなら何もしない（APIコールのみで終了）
 
 ### コストはかかりますか？
@@ -54,6 +55,7 @@ Claude APIのコストは、新しいランを記録するたびに1回発生し
 ```
 strava-training-advisor/
 ├── races.yaml                        # レース予定（自分で編集）
+├── .last_activity_id                 # 最後に検出したアクティビティID（git管理・自動更新）
 ├── .env                              # APIキー等（git管理外）
 ├── .env.example                      # .envのテンプレート
 ├── pyproject.toml                    # 依存パッケージ定義
@@ -159,19 +161,11 @@ git push -u origin main
 | `ATHLETE_AET_HR` | 有酸素閾値心拍数（例: 135） |
 | `ATHLETE_ANT_HR` | 無酸素閾値心拍数（例: 155） |
 
-**5. GitHub Variables を設定**
-
-同じページの **Variables** タブに追加：
-
-| Variable名 | 値 |
-|---|---|
-| `LAST_ACTIVITY_ID` | `0` |
-
-**6. Discord Webhook を作成**
+**5. Discord Webhook を作成**
 
 通知したいチャンネル → 歯車アイコン → 連携サービス → ウェブフック → 新しいウェブフック → URLをコピー
 
-**7. 動作確認**
+**6. 動作確認**
 
 Actions タブ → "Strava Activity Monitor" → "Run workflow" で手動実行
 
