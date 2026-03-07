@@ -1,6 +1,6 @@
 # Strava Training Advisor
 
-Stravaのランニングデータを取得し、[Uphill Athlete](https://uphillathlete.com/)のトレーニング哲学に基づいてAIがアドバイスを生成するツールです。新しいランを記録するとDiscordに自動通知が届きます。
+StravaのランニングデータをAIが分析し、[Uphill Athlete](https://uphillathlete.com/)のトレーニング哲学に基づいてコーチングアドバイスを生成するツールです。新しいランを記録するとDiscordに自動通知が届き、毎週日曜夜には週次サマリーと来週の目標が送信されます。
 
 ---
 
@@ -8,17 +8,24 @@ Stravaのランニングデータを取得し、[Uphill Athlete](https://uphilla
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  GitHub Actions（10分毎に自動実行）                       │
+│  GitHub Actions（自動実行）                               │
 │                                                         │
+│  【10分毎】新着アクティビティ検知                           │
 │  1. Strava API をポーリング                               │
 │     └─ 最新アクティビティIDを確認                          │
 │                                                         │
 │  2. 新しいランを検知した場合のみ:                           │
-│     a. 過去12週のデータを取得                              │
-│     b. Uphill Athlete 4ゾーンで分析                       │
+│     a. 過去12週のデータ＋心拍ストリームを取得               │
+│     b. Uphill Athlete 4ゾーンで分析（ADS診断含む）         │
 │     c. Claude AI がアドバイスを生成                        │
-│     d. Discord に通知                                    │
+│     d. Discord に通知（心拍ドリフト情報含む）               │
 │     e. .last_activity_id を更新（自動 git commit）          │
+│                                                         │
+│  【毎週日曜 JST 20:00】週次サマリー                        │
+│  1. 今週の実績を集計（距離・時間・ゾーン分布）               │
+│  2. 3:1サイクル・ADS診断                                  │
+│  3. Claude AI が来週の目標スケジュールを生成                │
+│  4. Discord に週次サマリー送信                             │
 └─────────────────────────────────────────────────────────┘
          ↓ ポーリング          ↓ 通知
     Strava API            Discord Webhook
@@ -26,7 +33,7 @@ Stravaのランニングデータを取得し、[Uphill Athlete](https://uphilla
 
 ### GitHub Actionsから定期実行しているのですか？
 
-**はい。** `.github/workflows/strava-monitor.yml` に記述されたスケジュール（10分毎）でGitHubのサーバーが自動的にスクリプトを実行します。自分のMacが起動していなくても動き続けます。
+**はい。** `.github/workflows/strava-monitor.yml` に記述されたスケジュール（10分毎 + 毎週日曜JST 20:00）でGitHubのサーバーが自動的にスクリプトを実行します。自分のMacが起動していなくても動き続けます。
 
 ### 新着の検知方法
 
@@ -44,9 +51,9 @@ WebhookではなくPolling（ポーリング）方式です。
 | **GitHub Actions** | **無料**（公開リポジトリは実行時間無制限） |
 | **Strava API** | **無料**（個人利用の範囲） |
 | **Discord Webhook** | **無料** |
-| **Claude API (Anthropic)** | **新着ランがあった時のみ課金** |
+| **Claude API (Anthropic)** | **新着ランがあった時 + 週1回課金** |
 
-Claude APIのコストは、新しいランを記録するたびに1回発生します。1回あたりの目安は **約0.5〜1円**（入力約1,000トークン + 出力約400トークン、claude-sonnet-4-6の料金）。月20回走っても **約10〜20円程度** です。
+Claude APIのコストは、新しいランを記録するたびに1回 + 毎週日曜のサマリーで1回発生します。1回あたりの目安は **約0.5〜1円**。月20回走っても **約30〜40円程度** です。
 
 ---
 
@@ -63,16 +70,17 @@ strava-training-advisor/
 ├── src/
 │   ├── models.py                     # データ構造の定義
 │   ├── strava_client.py              # Strava API クライアント（OAuth2・自動トークンリフレッシュ）
-│   ├── analyzer.py                   # Uphill Athlete 4ゾーン分析
-│   ├── advisor.py                    # Claude AI によるアドバイス生成
-│   ├── race_manager.py               # レース予定の読み込みとフェーズ判定
-│   ├── notifier.py                   # Discord Webhook 通知
+│   ├── analyzer.py                   # Uphill Athlete 4ゾーン分析（JST基準・心拍ドリフト対応）
+│   ├── advisor.py                    # Claude AI によるアドバイス生成（ADS診断・週次サマリー対応）
+│   ├── race_manager.py               # レース予定の読み込みとフェーズ判定（JST基準）
+│   ├── notifier.py                   # Discord Webhook 通知（心拍ドリフト・週次サマリー対応）
 │   └── report.py                     # HTML レポート生成（手動実行用）
 │
 ├── scripts/
 │   ├── setup_oauth.py                # Strava OAuth2 初回認証（初回のみ）
 │   ├── run_advisor.py                # 手動でレポートを生成・表示
-│   └── check_new_activities.py       # GitHub Actions から呼ばれる新着チェック
+│   ├── check_new_activities.py       # GitHub Actions から呼ばれる新着チェック
+│   └── weekly_summary.py             # 毎週日曜 JST 20:00 に実行される週次サマリー生成
 │
 └── .github/
     └── workflows/
@@ -85,7 +93,7 @@ strava-training-advisor/
 
 このツールは以下の原則に基づいて分析・アドバイスを行います。
 
-**4ゾーンシステム（心拍数ベース）**
+### 4ゾーンシステム（心拍数ベース）
 
 | ゾーン | 心拍範囲 | 強度 | 目的 |
 |---|---|---|---|
@@ -97,17 +105,42 @@ strava-training-advisor/
 - **AeT**（有酸素閾値）: `.env` の `ATHLETE_AET_HR` に設定
 - **AnT**（無酸素閾値）: `.env` の `ATHLETE_ANT_HR` に設定
 - **80/20ルール**: トレーニング時間の80%以上をZone 1-2で行う
-- **周期化**: 3週間の負荷増加 + 1週間の回復（ピーク週の50%）
 
-**トレーニングフェーズ（Aレースまでの日数で自動判定）**
+### ADS診断（10%テスト）
+
+AeT/AnT差（= (AnT - AeT) / AnT × 100）で有酸素不全症候群（ADS）を判定します。
+
+| 差 | 判定 | 対応 |
+|---|---|---|
+| > 10% | ADS疑い | Zone 3/4禁止、有酸素ベース徹底強化 |
+| ≤ 10% | 正常 | 高強度トレーニング5〜10%まで導入可 |
+
+### 3大原則
+
+- **継続性**: 一貫したトレーニングが最大の適応をもたらす
+- **段階性**: 初心者は年25%増可、上級者は10%以下
+- **変調**: 3週構築 + 1週回復（最困難週の50%に削減）
+
+### トレーニングフェーズ（Aレースまでの日数で自動判定）
 
 | フェーズ | 時期 | 内容 |
 |---|---|---|
-| Base | 12週以上前 | 有酸素ベース中心、Z1-Z2 90%以上 |
-| Build | 8〜12週前 | ボリューム増加、週1回Z3セッション |
-| Peak | 4〜8週前 | 最大負荷 |
-| Taper | 4週前以内 | ボリューム削減、強度維持 |
-| Recovery | Aレース直後2週 | 完全回復優先 |
+| Base | 12週以上前 | 有酸素ベース中心、Z1-Z2 95%以上、Z3禁止 |
+| Build | 8〜12週前 | ボリューム増加、ME週1回、Z3週1回まで |
+| Peak | 4〜8週前 | 最大負荷、ME週1〜2回、30/30週1回 |
+| Taper | 4週前以内 | ボリューム40〜60%削減、強度維持 |
+| Recovery | Aレース直後2週 | 完全回復優先、Z2以上禁止 |
+
+### 心拍ドリフト分析
+
+アクティビティ内の後半・前半の平均心拍を比較し、有酸素ベースの強さを評価します。
+
+| ドリフト | 評価 |
+|---|---|
+| ≤ 3% | ✅ 良好（AeT以下で安定） |
+| 3〜5% | ⚠️ 注意 |
+| 5〜10% | ⚠️ 有酸素ベース不足の可能性 |
+| > 10% | 🔴 深刻（強度過多） |
 
 ---
 
@@ -204,6 +237,16 @@ uv run python scripts/run_advisor.py --open
 
 ---
 
+## 週次サマリーを手動で送信
+
+```bash
+uv run python scripts/weekly_summary.py
+```
+
+または、GitHub Actions の "Run workflow" から `run_weekly_summary=true` を指定して実行できます。
+
+---
+
 ## AeT（有酸素閾値）の測定方法
 
 Uphill Athleteの「心拍ドリフトテスト」で測定できます。
@@ -213,3 +256,38 @@ Uphill Athleteの「心拍ドリフトテスト」で測定できます。
 3. 心拍が安定する最大ペースの心拍数がAeT
 
 詳細: https://uphillathlete.com/aerobic-training/heart-rate-drift-test/
+
+---
+
+## 変更履歴
+
+### v2.0（2026-03）
+
+**週次サマリー通知**
+- 毎週日曜 JST 20:00 に自動送信
+- その週の実績（距離・時間・ゾーン分布）を振り返り
+- AIが来週の目標距離・時間と月〜日の具体スケジュールを提案
+
+**心拍ストリーム活用**
+- アクティビティ内の心拍推移（ドリフト）を分析
+- 後半/前半の心拍比較でAeT以上かどうかを自動判定
+- Discord通知とAIアドバイス両方に反映
+
+**Uphill Athlete理論の強化**
+- ADS（有酸素不全症候群）診断：AeT/AnT差の10%テスト
+- 継続性・段階性・変調の3原則をアドバイスに統合
+- フェーズ別詳細指針（Base/Build/Peak/Taper/Recovery）
+- 筋持久力（ME）トレーニングと30/30インターバルの推奨
+- AeT測定ガイド（心拍ドリフトテスト）の提示
+
+**日本時間（JST）統一**
+- 全処理をJST基準に統一（旧来はUTC混在）
+- 週の区切り・フェーズ判定・アクティビティ分類すべてJST
+
+### v1.0（2025-xx）
+
+- Strava APIポーリングによる新着アクティビティ検知
+- Uphill Athlete 4ゾーン分析
+- Claude AI によるトレーニングアドバイス生成
+- Discord Webhook 通知
+- レース予定と自動フェーズ判定
