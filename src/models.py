@@ -7,6 +7,9 @@ from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 
+ActivityType = Literal["easy", "long_run", "tempo", "speed", "recovery", "mixed", "unknown"]
+
+
 @dataclass
 class Activity:
     """A single Strava activity."""
@@ -25,6 +28,18 @@ class Activity:
     heartrate_stream: list[int] = field(default_factory=list)
     time_stream: list[int] = field(default_factory=list)
     zone_distribution: Optional["ZoneDistribution"] = field(default=None)
+    activity_type: str = "unknown"  # ActivityType
+
+    RUNNING_TYPES = frozenset({"Run", "TrailRun", "VirtualRun"})
+    STRENGTH_TYPES = frozenset({"WeightTraining", "Workout", "Crossfit", "Yoga"})
+
+    @property
+    def is_running(self) -> bool:
+        return self.sport_type in self.RUNNING_TYPES
+
+    @property
+    def is_strength(self) -> bool:
+        return self.sport_type in self.STRENGTH_TYPES
 
     @property
     def hr_drift_pct(self) -> Optional[float]:
@@ -124,14 +139,16 @@ class ZoneDistribution:
 
     @property
     def total_s(self) -> float:
-        return self.zone1_s + self.zone2_s + self.zone3_s + self.zone4_s
+        # Z0（Z1未満）も含めた全時間を分母にすることで、
+        # ウォームアップ・下り・歩きが多いトレイルランでも Z3 が過大表示されない
+        return self.zone0_s + self.zone1_s + self.zone2_s + self.zone3_s + self.zone4_s
 
     @property
     def low_intensity_pct(self) -> float:
-        """Percentage of time in Zone 1+2 (target: >=80%)."""
+        """Percentage of time in Zone 0+1+2 (recovery + easy aerobic, target: >=85%)."""
         if self.total_s == 0:
             return 0.0
-        return (self.zone1_s + self.zone2_s) / self.total_s * 100
+        return (self.zone0_s + self.zone1_s + self.zone2_s) / self.total_s * 100
 
     @property
     def high_intensity_pct(self) -> float:
@@ -143,8 +160,17 @@ class ZoneDistribution:
     def zone_pct(self, zone: int) -> float:
         if self.total_s == 0:
             return 0.0
-        zone_map = {1: self.zone1_s, 2: self.zone2_s, 3: self.zone3_s, 4: self.zone4_s}
+        zone_map = {0: self.zone0_s, 1: self.zone1_s, 2: self.zone2_s, 3: self.zone3_s, 4: self.zone4_s}
         return zone_map.get(zone, 0) / self.total_s * 100
+
+
+@dataclass
+class ActivityAnalysis:
+    """Per-activity zone breakdown and classification."""
+
+    activity: Activity
+    zone_distribution: ZoneDistribution
+    activity_type: str  # ActivityType
 
 
 @dataclass
@@ -154,6 +180,7 @@ class WeeklyStats:
     week_start: datetime
     activities: list[Activity] = field(default_factory=list)
     zone_distribution: ZoneDistribution = field(default_factory=ZoneDistribution)
+    strength_count: int = 0
 
     @property
     def total_distance_km(self) -> float:
@@ -205,3 +232,8 @@ class AnalysisResult:
     avg_weekly_km: float
     avg_weekly_h: float
     total_activities: int
+    # Extensions for strength tracking and per-activity analysis
+    strength_activities: list[Activity] = field(default_factory=list)
+    activity_analyses: list["ActivityAnalysis"] = field(default_factory=list)
+    weekly_build_rates: list[Optional[float]] = field(default_factory=list)
+    strength_counts_per_week: list[int] = field(default_factory=list)

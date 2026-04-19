@@ -108,17 +108,15 @@ class StravaClient:
                 break
             page += 1
 
-        # Filter to running activities only
-        running = [
-            r for r in all_raw
-            if r.get("sport_type") in ("Run", "TrailRun", "VirtualRun")
-        ]
+        # Filter to running and strength activities
+        relevant_types = {"Run", "TrailRun", "VirtualRun", "WeightTraining", "Workout", "Crossfit", "Yoga"}
+        relevant = [r for r in all_raw if r.get("sport_type") in relevant_types]
 
         activities = []
-        for raw in running:
+        for raw in relevant:
             activity = self._parse_activity(raw)
-            # Fetch detailed streams for activities with HR data
-            if raw.get("has_heartrate"):
+            # Fetch HR streams only for running activities with HR data
+            if activity.is_running and raw.get("has_heartrate"):
                 try:
                     activity = self._enrich_with_streams(activity)
                 except Exception:

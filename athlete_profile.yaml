@@ -1,0 +1,21 @@
+# アスリートプロファイル — 個人の練習パターンとゴールを設定
+# このファイルを編集してAIアドバイスをパーソナライズできます
+
+schedule:
+  weekday_pattern: "平日はなるべくジョグ（easy run）。週1回スピードセッション"
+  weekend_pattern: "週末にロング走。できればトレイルで"
+  strength_training:
+    target_per_week: 2
+    notes: "忘れがちなのでリマインダー必要"
+
+preferences:
+  terrain: "trail"  # trail / road / mixed
+  weekly_build_rate_max: 10  # 週間距離の最大増加率（%）
+  recovery_week_interval: 4  # N週ごとに回復週を入れる
+
+goals:
+  primary: "信越五岳100マイル（トレイルウルトラ）"
+  secondary: "東京マラソン完走"
+  weaknesses:
+    - "筋トレを忘れがち"
+    - "トレイルの登りで意図せず Z3 に入りがち"
