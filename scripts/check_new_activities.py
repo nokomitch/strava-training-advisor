@@ -158,7 +158,6 @@ def main() -> None:
         result=result,
         advice=advice,
         races=races if races else None,
-        athlete_profile=athlete_profile,
     )
     
     if sent:
