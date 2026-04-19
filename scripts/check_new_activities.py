@@ -94,6 +94,9 @@ def main() -> None:
         print(f"WARNING: 12週分の取得に失敗、1週分で分析します: {e}", file=sys.stderr)
         all_activities = recent
 
+    # Replace the newest activity in all_activities with the stream-enriched version
+    all_activities = [newest if a.id == newest.id else a for a in all_activities]
+
     zones = TrainingZones(aet_hr=aet_hr, ant_hr=ant_hr)
     running_activities = [a for a in all_activities if a.is_running]
     strength_activities = [a for a in all_activities if a.is_strength]
