@@ -10,9 +10,9 @@ from .race_manager import get_next_a_race, get_training_phase
 
 def _zone_color(low_intensity_pct: float) -> int:
     """Return Discord embed color based on low-intensity percentage."""
-    if low_intensity_pct >= 80:
-        return 0x2ECC71  # Green - on target
-    elif low_intensity_pct >= 65:
+    if low_intensity_pct >= 85:
+        return 0x2ECC71
+    elif low_intensity_pct >= 70:
         return 0xF39C12  # Orange - slightly high intensity
     else:
         return 0xE74C3C  # Red - too much high intensity
@@ -56,8 +56,8 @@ def send_new_activity_notification(
             f"Z3: {dist.zone_pct(3):.0f}% / "
             f"Z4: {dist.zone_pct(4):.0f}%"
         )
-        intensity_icon = "✅" if low_pct >= 80 else "⚠️" if low_pct >= 65 else "🔴"
-        intensity_str = f"{low_pct:.0f}% {intensity_icon}（目標80%以上）"
+        intensity_icon = "✅" if low_pct >= 85 else "⚠️" if low_pct >= 70 else "🔴"
+        intensity_str = f"{low_pct:.0f}% {intensity_icon}（目標85%以上）"
     else:
         zone_str = "心拍データなし"
         intensity_str = "—"
@@ -254,4 +254,38 @@ def send_weekly_summary(
         return True
     except requests.RequestException as e:
         print(f"週次サマリーのDiscord通知送信に失敗しました: {e}")
+        return False
+
+def send_strength_activity_notification(
+    activity: Activity,
+    result: AnalysisResult,
+    athlete_profile=None,
+    webhook_url: str | None = None,
+) -> bool:
+    """筋トレアクティビティの Discord 通知を送る。"""
+    url = webhook_url or os.getenv("DISCORD_WEBHOOK_URL", "")
+    if not url:
+        return False
+
+    target = athlete_profile.strength_target_per_week if athlete_profile else 2
+    last_week_strength = result.strength_counts_per_week[-1] if result.strength_counts_per_week else 0
+    status = "✅ 今週の目標達成！" if last_week_strength >= target else f"今週 {last_week_strength}/{target}回"
+
+    h = activity.moving_time_s // 3600
+    m = (activity.moving_time_s % 3600) // 60
+    duration = f"{h}時間{m:02d}分" if h > 0 else f"{m}分"
+
+    embed = {
+        "title": f"💪 {activity.name}",
+        "url": f"https://www.strava.com/activities/{activity.id}",
+        "color": 0x3498DB,
+        "fields": [{"name": "筋トレ記録", "value": f"⏱ {duration} | {status}", "inline": False}],
+        "footer": {"text": "Strava Training Advisor"},
+    }
+    try:
+        resp = requests.post(url, json={"embeds": [embed]}, timeout=10)
+        resp.raise_for_status()
+        return True
+    except requests.RequestException as e:
+        print(f"Discord通知の送信に失敗しました: {e}")
         return False

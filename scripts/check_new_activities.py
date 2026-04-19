@@ -24,10 +24,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.analyzer import analyze
 from src.advisor import generate_single_activity_advice
+from src.athlete_profile import load_athlete_profile
+from src.analyzer import analyze, compute_single_activity_zones, classify_activity_type
 from src.models import TrainingZones
-from src.notifier import send_new_activity_notification
+from src.notifier import send_new_activity_notification, send_strength_activity_notification
 from src.race_manager import load_races
 from src.strava_client import StravaClient
 
@@ -57,6 +58,7 @@ def main() -> None:
     print(f"前回の最終アクティビティID: {last_id}")
 
     client = StravaClient()
+    athlete_profile = load_athlete_profile()
 
     # Fetch most recent 5 running activities (fast check)
     try:
@@ -93,8 +95,19 @@ def main() -> None:
         all_activities = recent
 
     zones = TrainingZones(aet_hr=aet_hr, ant_hr=ant_hr)
-    result = analyze(all_activities, zones)
+    running_activities = [a for a in all_activities if a.is_running]
+    strength_activities = [a for a in all_activities if a.is_strength]
+    result = analyze(running_activities, zones, strength_activities=strength_activities)
 
+    # 筋トレの場合は専用通知
+    if newest.is_strength:
+        sent = send_strength_activity_notification(newest, result, athlete_profile)
+        if sent:
+            print("筋トレ Discord通知を送信しました。")
+        write_last_id(newest.id)
+        print(f"NEW_ACTIVITY_ID={newest.id}")
+        return
+    
     # Load races
     races = load_races()
 
@@ -134,7 +147,7 @@ def main() -> None:
 
     # Generate short advice
     try:
-        advice = generate_single_activity_advice(activity_summary, result, races)
+        advice = generate_single_activity_advice(activity_summary, result, races, athlete_profile)
     except Exception as e:
         print(f"WARNING: AIアドバイス生成に失敗: {e}", file=sys.stderr)
         advice = "（アドバイスの生成に失敗しました）"
@@ -145,8 +158,9 @@ def main() -> None:
         result=result,
         advice=advice,
         races=races if races else None,
+        athlete_profile=athlete_profile,
     )
-
+    
     if sent:
         print("Discord通知を送信しました。")
     else:
