@@ -58,7 +58,7 @@ jobs:
           OUTPUT=$(uv run python scripts/check_new_activities.py 2>&1)
           echo "$OUTPUT"
           # Extract NEW_ACTIVITY_ID from output if present
-          NEW_ID=$(echo "$OUTPUT" | grep '^NEW_ACTIVITY_ID=' | cut -d= -f2)
+          NEW_ID=$(echo "$OUTPUT" | grep '^NEW_ACTIVITY_ID=' | cut -d= -f2 || true)
           echo "new_activity_id=$NEW_ID" >> $GITHUB_OUTPUT
 
       - name: Commit updated .last_activity_id
