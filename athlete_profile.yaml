@@ -9,8 +9,8 @@ schedule:
     notes: "忘れがちなのでリマインダー必要"
 
 preferences:
-  terrain: "trail"  # trail / road / mixed
-  weekly_build_rate_max: 10  # 週間距離の最大増加率（%）
+  terrain: "mixed"  # trail / road / mixed
+  weekly_build_rate_max: 15  # 週間距離の最大増加率（%）
   recovery_week_interval: 4  # N週ごとに回復週を入れる
 
 goals:

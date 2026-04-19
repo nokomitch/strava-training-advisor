@@ -51,6 +51,7 @@ def send_new_activity_notification(
     # Build zone distribution string
     if has_hr:
         zone_str = (
+            f"Z0: {dist.zone_pct(0):.0f}% / "
             f"Z1: {dist.zone_pct(1):.0f}% / "
             f"Z2: {dist.zone_pct(2):.0f}% / "
             f"Z3: {dist.zone_pct(3):.0f}% / "
@@ -82,9 +83,9 @@ def send_new_activity_notification(
         act_low = azd.low_intensity_pct
         act_icon = "✅" if act_low >= 80 else "⚠️" if act_low >= 65 else "🔴"
         act_zone_str = (
-            f"\nこのラン: Z1:{azd.zone_pct(1):.0f}% Z2:{azd.zone_pct(2):.0f}%"
+            f"\nこのラン: Z0:{azd.zone_pct(0):.0f}% Z1:{azd.zone_pct(1):.0f}% Z2:{azd.zone_pct(2):.0f}%"
             f" Z3:{azd.zone_pct(3):.0f}% Z4:{azd.zone_pct(4):.0f}%"
-            f" (低強度{act_low:.0f}% {act_icon})"
+            f" (低強度Z0+Z1+Z2:{act_low:.0f}% {act_icon})"
         )
 
     # Race info
@@ -172,7 +173,7 @@ def send_weekly_summary(
     # ゾーン分布文字列
     if has_zone_data:
         zone_str = (
-            f"Z1: {zd.zone_pct(1):.0f}% / Z2: {zd.zone_pct(2):.0f}% / "
+            f"Z0: {zd.zone_pct(0):.0f}% / Z1: {zd.zone_pct(1):.0f}% / Z2: {zd.zone_pct(2):.0f}% / "
             f"Z3: {zd.zone_pct(3):.0f}% / Z4: {zd.zone_pct(4):.0f}%"
         )
         intensity_icon = "✅" if low_pct >= 80 else "⚠️" if low_pct >= 65 else "🔴"

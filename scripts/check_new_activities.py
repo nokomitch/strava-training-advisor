@@ -128,11 +128,12 @@ def main() -> None:
     if newest.zone_distribution and newest.zone_distribution.total_s > 0:
         azd = newest.zone_distribution
         zone_dist_info = (
-            f"\n- ゾーン分布: Z1:{azd.zone_pct(1):.0f}%"
+            f"\n- ゾーン分布: Z0:{azd.zone_pct(0):.0f}%"
+            f" Z1:{azd.zone_pct(1):.0f}%"
             f" Z2:{azd.zone_pct(2):.0f}%"
             f" Z3:{azd.zone_pct(3):.0f}%"
             f" Z4:{azd.zone_pct(4):.0f}%"
-            f" (低強度{azd.low_intensity_pct:.0f}%)"
+            f" (低強度Z0+Z1+Z2:{azd.low_intensity_pct:.0f}%)"
         )
 
     activity_summary = (
