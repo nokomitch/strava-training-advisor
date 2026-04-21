@@ -99,8 +99,8 @@ def send_new_activity_notification(
     # Strava activity link
     strava_url = f"https://www.strava.com/activities/{activity.id}"
 
-    # Truncate advice for embed
-    short_advice = advice[:800] + "..." if len(advice) > 800 else advice
+    # Discord embed field limit is 1024 chars
+    short_advice = advice[:1020] + "…" if len(advice) > 1024 else advice
 
     embed = {
         "title": f"🏃 {activity.name}",
