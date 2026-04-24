@@ -4,6 +4,7 @@
 schedule:
   weekday_pattern: "平日はなるべくジョグ（easy run）。週1回スピードセッション"
   weekend_pattern: "週末にロング走。できればトレイルで"
+  warmup_minutes: 10  # 心拍ドリフト計算から除外するウォームアップ時間（分）
   strength_training:
     target_per_week: 2
     notes: "忘れがちなのでリマインダー必要"

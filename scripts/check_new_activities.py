@@ -117,14 +117,22 @@ def main() -> None:
     # Build activity summary for single-activity advice
     hr_info = f"平均心拍: {newest.average_heartrate:.0f}bpm" if newest.average_heartrate else "心拍データなし"
 
+    warmup_s = (athlete_profile.warmup_minutes if athlete_profile else 10) * 60
+    drift_val = newest.compute_hr_drift(warmup_s)
+    warmup_applied = warmup_s
+    if drift_val is None and warmup_s > 0:
+        # アクティビティが短くウォームアップ除外後のデータが不足する場合はフォールバック
+        drift_val = newest.compute_hr_drift(0)
+        warmup_applied = 0
     drift_info = ""
-    if newest.hr_drift_pct is not None:
-        drift_info = f"\n- 心拍ドリフト: {newest.hr_drift_pct:+.1f}%"
-        if newest.hr_drift_pct > 10:
+    if drift_val is not None:
+        warmup_note = f"（ウォームアップ{warmup_applied//60}分除外）" if warmup_applied > 0 else ""
+        drift_info = f"\n- 心拍ドリフト: {drift_val:+.1f}%{warmup_note}"
+        if drift_val > 10:
             drift_info += "（深刻→強度過多）"
-        elif newest.hr_drift_pct > 5:
+        elif drift_val > 5:
             drift_info += "（有酸素ベース不足の可能性）"
-        elif newest.hr_drift_pct > 3:
+        elif drift_val > 3:
             drift_info += "（経過観察）"
 
     zone_dist_info = ""
@@ -162,6 +170,8 @@ def main() -> None:
         result=result,
         advice=advice,
         races=races if races else None,
+        hr_drift=drift_val,
+        warmup_minutes=warmup_applied // 60,
     )
     
     if sent:

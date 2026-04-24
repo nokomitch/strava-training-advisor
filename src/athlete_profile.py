@@ -15,6 +15,7 @@ class AthleteProfile:
     terrain_preference: str = "mixed"
     weekly_build_rate_max: int = 10
     recovery_week_interval: int = 4
+    warmup_minutes: int = 10
     primary_goal: str = ""
     secondary_goal: str = ""
     weaknesses: list[str] = field(default_factory=list)
@@ -45,6 +46,7 @@ def load_athlete_profile(yaml_path: str | None = None) -> AthleteProfile | None:
         terrain_preference=prefs.get("terrain", "mixed"),
         weekly_build_rate_max=int(prefs.get("weekly_build_rate_max", 10)),
         recovery_week_interval=int(prefs.get("recovery_week_interval", 4)),
+        warmup_minutes=int(schedule.get("warmup_minutes", 10)),
         primary_goal=goals.get("primary", ""),
         secondary_goal=goals.get("secondary", ""),
         weaknesses=goals.get("weaknesses", []),

@@ -32,10 +32,13 @@ def send_new_activity_notification(
     advice: str,
     races: list[Race] | None = None,
     webhook_url: str | None = None,
+    hr_drift: float | None = None,
+    warmup_minutes: int = 0,
 ) -> bool:
     """
     Send a Discord notification for a new activity.
 
+    hr_drift: ウォームアップ除外済みのドリフト値。省略時は activity.hr_drift_pct を使用。
     Returns True if the message was sent successfully.
     """
     url = webhook_url or os.getenv("DISCORD_WEBHOOK_URL", "")
@@ -66,14 +69,16 @@ def send_new_activity_notification(
     # HR info
     hr_str = f"{activity.average_heartrate:.0f} bpm" if activity.average_heartrate else "データなし"
 
-    # Heart rate drift info
+    # Heart rate drift info (ウォームアップ除外済みの値を優先)
+    drift_val = hr_drift if hr_drift is not None else activity.hr_drift_pct
     drift_str = ""
-    if activity.hr_drift_pct is not None:
-        drift_icon = "✅" if activity.hr_drift_pct <= 3 else "⚠️" if activity.hr_drift_pct <= 5 else "🔴"
-        drift_str = f"\n💗 心拍ドリフト: {activity.hr_drift_pct:+.1f}% {drift_icon}"
-        if activity.hr_drift_pct > 10:
+    if drift_val is not None:
+        warmup_note = f"（WU{warmup_minutes}分除外）" if warmup_minutes > 0 else ""
+        drift_icon = "✅" if drift_val <= 3 else "⚠️" if drift_val <= 5 else "🔴"
+        drift_str = f"\n💗 心拍ドリフト: {drift_val:+.1f}%{warmup_note} {drift_icon}"
+        if drift_val > 10:
             drift_str += "（深刻→強度過多）"
-        elif activity.hr_drift_pct > 5:
+        elif drift_val > 5:
             drift_str += "（有酸素ベース不足の可能性）"
 
     # Activity-level zone distribution

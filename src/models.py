@@ -41,16 +41,28 @@ class Activity:
     def is_strength(self) -> bool:
         return self.sport_type in self.STRENGTH_TYPES
 
-    @property
-    def hr_drift_pct(self) -> Optional[float]:
+    def compute_hr_drift(self, warmup_s: int = 0) -> Optional[float]:
         """後半平均HR / 前半平均HR × 100 - 100（ドリフト%）。
+        warmup_s: ウォームアップとして除外する先頭の秒数。time_stream を使って除外。
         正値 = 後半に心拍上昇（有酸素ベース弱さの指標）。ストリームがない場合は None。"""
         if not self.heartrate_stream or len(self.heartrate_stream) < 4:
             return None
-        mid = len(self.heartrate_stream) // 2
-        first_half_avg = sum(self.heartrate_stream[:mid]) / mid
-        second_half_avg = sum(self.heartrate_stream[mid:]) / (len(self.heartrate_stream) - mid)
+        if warmup_s > 0 and self.time_stream:
+            start_idx = next((i for i, t in enumerate(self.time_stream) if t >= warmup_s), None)
+            if start_idx is None or len(self.heartrate_stream) - start_idx < 4:
+                return None
+            hr = self.heartrate_stream[start_idx:]
+        else:
+            hr = self.heartrate_stream
+        mid = len(hr) // 2
+        first_half_avg = sum(hr[:mid]) / mid
+        second_half_avg = sum(hr[mid:]) / (len(hr) - mid)
         return (second_half_avg / first_half_avg - 1) * 100
+
+    @property
+    def hr_drift_pct(self) -> Optional[float]:
+        """ウォームアップなしのドリフト%（後方互換用）。"""
+        return self.compute_hr_drift(0)
 
     @property
     def hr_stability(self) -> Optional[float]:
