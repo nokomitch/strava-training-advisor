@@ -97,6 +97,14 @@ def main() -> None:
     # Replace the newest activity in all_activities with the stream-enriched version
     all_activities = [newest if a.id == newest.id else a for a in all_activities]
 
+    # 心拍エラー等で除外指定されたアクティビティをゾーン計算から外す
+    exclude_ids = set(athlete_profile.exclude_activity_ids if athlete_profile else [])
+    if exclude_ids:
+        excluded = [a for a in all_activities if a.id in exclude_ids]
+        all_activities = [a for a in all_activities if a.id not in exclude_ids]
+        if excluded:
+            print(f"除外アクティビティ: {[a.id for a in excluded]}")
+
     zones = TrainingZones(aet_hr=aet_hr, ant_hr=ant_hr)
     running_activities = [a for a in all_activities if a.is_running]
     strength_activities = [a for a in all_activities if a.is_strength]

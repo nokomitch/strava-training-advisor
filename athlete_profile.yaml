@@ -20,3 +20,6 @@ goals:
   weaknesses:
     - "筋トレを忘れがち"
     - "トレイルの登りで意図せず Z3 に入りがち"
+
+exclude_activity_ids:
+  - 18290157188  # 心拍計エラー
